@@ -7,7 +7,11 @@ import org.apache.spark.sql.types.{StringType, StructField, StructType}
 import org.slf4j.LoggerFactory
 
 object SampleMain {
-
+case class AccountsProfile(account_no:String,
+                           bank_name:String,
+                           cust_name:String,
+                           gender:String,
+                           ph_no:String)
   def main(args: Array[String]): Unit = {
     import spark.implicits._
     val log = LoggerFactory.getLogger(this.getClass)
@@ -30,6 +34,8 @@ object SampleMain {
 
 val rowRDD = rdd.map(rec => rec.split(",")).map(arr => org.apache.spark.sql.Row(arr:_*))
 
+val caseDF = rdd.map(rec => rec.split(",")).map(arr => AccountsProfile(arr(0),arr(1),arr(2),arr(3),arr(4))).toDF()
+
 val df = spark.createDataFrame(rowRDD,schema)
     df.printSchema()
     //df.show(100,false)
@@ -42,6 +48,7 @@ val df = spark.createDataFrame(rowRDD,schema)
     val sDF = df.select("bank_name","account_no")
     val df1 = df.drop("bank_name")
     df.createOrReplaceTempView("t1")
+    df.createOrReplaceTempView("t2")
     val sqlDF = spark.sql(
       """
         |select account_no, ph_no, bank_name, 'INDIA' as country from t1 where bank_name = 'HDFC'
@@ -57,6 +64,31 @@ val df = spark.createDataFrame(rowRDD,schema)
     df.write.format("parquet").mode(SaveMode.Overwrite).save(outputLoc)
 
     val renamedDF = df.withColumnRenamed("ph_no", "mobile_no")
+
+    val plainDF = spark
+      .read
+      .option("delimiter",",")
+      .schema(schema)
+      .csv(loc)
+
+    val bankCountDF = spark.sql(
+      """
+        |select bank_name,count(*) as mycount from t2
+        |where bank_name  not in ('CITI','HDFC')
+        |group by bank_name
+        |
+        |""".stripMargin)
+
+    val resultSQl = spark.sql(
+      """
+        |select bank_name,count(*) as cust_count from
+        |(select account_no, ph_no, bank_name from
+        |(select * from t2)a
+        |where bank_name != 'HDFC')b
+        |group by bank_name
+        |having cust_count > 4
+        |""".stripMargin
+      )
 
   }
 
