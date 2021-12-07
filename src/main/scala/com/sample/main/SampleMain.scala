@@ -13,14 +13,14 @@ case class AccountsProfile(account_no:String,
                            gender:String,
                            ph_no:String)
   def main(args: Array[String]): Unit = {
-    import spark.implicits._
+
     val log = LoggerFactory.getLogger(this.getClass)
    val spark = SparkSession.builder
       .appName("SparkExample")
       .config("spark.sql.warehouse.dir", "target/spark-warehouse")
       .enableHiveSupport()
       .getOrCreate
-
+    import spark.implicits._
     val loc = "/user/training/surender_hadoop/input_files/accounts_profile/accounts_profile.txt"
     log.info("Starting the spark application ....")
     val rdd = spark.sparkContext.textFile(loc)

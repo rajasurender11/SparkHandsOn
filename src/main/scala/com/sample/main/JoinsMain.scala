@@ -1,5 +1,6 @@
 package com.sample.main
 
+
 import org.apache.spark.sql.functions.lit
 import org.apache.spark.sql.functions.{col, desc, sum}
 import org.apache.spark.sql.{SaveMode, SparkSession}
@@ -8,16 +9,21 @@ import org.slf4j.LoggerFactory
 
 object JoinsMain {
 
-  val spark = SparkSession.builder
-    .appName("SparkExample")
-    .config("spark.sql.warehouse.dir", "target/spark-warehouse")
-    .enableHiveSupport()
-    .getOrCreate
+
 
   def main(args: Array[String]): Unit = {
+
+    val spark = SparkSession.builder
+      .appName("SparkExample")
+      .config("spark.sql.warehouse.dir", "target/spark-warehouse")
+      .enableHiveSupport()
+      .getOrCreate
+    import spark.implicits._
     val accountsLoc = "/user/training/surender_hadoop/input_files/accounts_profile/accounts_profile.txt"
 
     val atmTransLoc = "/user/training/surender_hadoop/input_files/atm_trans/atm_trans.txt"
+
+    val bName = args(0)
 
     val accountsSchema = StructType(Array(
       StructField("account_no", StringType, true),
@@ -50,9 +56,16 @@ object JoinsMain {
 
     val innerJoinedDF = accountsDF.join(transDF, accountsDF("account_no") ===  transDF("account_id") , "inner" )
 
+    innerJoinedDF.createOrReplaceTempView("t1")
+
+    spark.sql(
+      s"""
+        |select * from t1 where bank_name = '${bName}'
+        |""".stripMargin).show(100,false)
+
     val leftJoinedDF = accountsDF.join(transDF, accountsDF("account_no") ===  transDF("account_id") , "left_outer" )
 
-    leftJoinedDF.filter(leftJoinedDF("atm_id").isNull).select("account_no","bank_name","cust_name","gender","ph_no").show
+    //leftJoinedDF.filter(leftJoinedDF("atm_id").isNull).select("account_no","bank_name","cust_name","gender","ph_no").show
 
     val leftAntiJoinedDF = accountsDF.join(transDF, accountsDF("account_no") ===  transDF("account_id") , "left_anti" )
   }
